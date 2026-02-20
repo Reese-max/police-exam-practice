@@ -428,6 +428,41 @@ if(__exports != exports)module.exports = exports;return module.exports}));
             });
         }
         function getYear(exam) { return (exam.id.match(/\d{3}/) || [''])[0]; }
+
+        // Pre-cache subjects, years, and question counts (examsData never changes)
+        var _cachedSubjects = [...new Set(examsData.map(e => e.subject))];
+        var _cachedYears = [...new Set(examsData.map(e => getYear(e)).filter(Boolean))].sort().reverse();
+        var _countBySubjectYear = {};
+        examsData.forEach(function(exam) {
+            var s = exam.subject, y = getYear(exam);
+            if (!_countBySubjectYear[s]) _countBySubjectYear[s] = {};
+            _countBySubjectYear[s][y] = ((_countBySubjectYear[s][y]) || 0) + exam.questions.length;
+        });
+        function _fastFilteredCount() {
+            if (state.selectedSubjects.length === 0 || state.selectedYears.length === 0) return 0;
+            var count = 0;
+            state.selectedSubjects.forEach(function(s) {
+                if (_countBySubjectYear[s]) {
+                    state.selectedYears.forEach(function(y) {
+                        count += _countBySubjectYear[s][y] || 0;
+                    });
+                }
+            });
+            return count;
+        }
+        function _updateStartBtn() {
+            var btn = document.querySelector('.home-start-btn');
+            if (!btn) return;
+            var count = _fastFilteredCount();
+            btn.textContent = count > 0 ? '開始練習（' + count + ' 題）' : '開始練習';
+        }
+        function _updateSelectAllLabels() {
+            var subBtn = document.getElementById('selectAllSubjectsBtn');
+            if (subBtn) subBtn.textContent = state.selectedSubjects.length === _cachedSubjects.length ? '取消全選' : '全選';
+            var yearBtn = document.getElementById('selectAllYearsBtn');
+            if (yearBtn) yearBtn.textContent = state.selectedYears.length === _cachedYears.length ? '取消全選' : '全選';
+        }
+
         function isCorrectKey(key, answer) { return answer.split(',').map(a => a.trim()).includes(key); }
         function isCorrectAnswer(userAnswer, answer) {
             if (!userAnswer) return false;
@@ -476,20 +511,32 @@ if(__exports != exports)module.exports = exports;return module.exports}));
             return count;
         }
         function toggleAllSubjects() {
-            const subjects = [...new Set(examsData.map(e => e.subject))];
-            state.selectedSubjects = state.selectedSubjects.length === subjects.length ? [] : [...subjects];
-            render();
+            state.selectedSubjects = state.selectedSubjects.length === _cachedSubjects.length ? [] : [..._cachedSubjects];
+            var allSelected = state.selectedSubjects.length === _cachedSubjects.length;
+            var btns = document.querySelectorAll('.home-subject-btn');
+            for (var i = 0; i < btns.length; i++) {
+                if (allSelected) { btns[i].classList.add('bg-slate-800', 'text-white'); }
+                else { btns[i].classList.remove('bg-slate-800', 'text-white'); }
+            }
+            _updateStartBtn();
+            _updateSelectAllLabels();
         }
         function toggleAllYears() {
-            const years = [...new Set(examsData.map(e => getYear(e)).filter(Boolean))];
-            state.selectedYears = state.selectedYears.length === years.length ? [] : [...years];
-            render();
+            state.selectedYears = state.selectedYears.length === _cachedYears.length ? [] : [..._cachedYears];
+            var allSelected = state.selectedYears.length === _cachedYears.length;
+            var btns = document.querySelectorAll('.home-year-btn');
+            for (var i = 0; i < btns.length; i++) {
+                if (allSelected) { btns[i].classList.add('bg-slate-800', 'text-white'); }
+                else { btns[i].classList.remove('bg-slate-800', 'text-white'); }
+            }
+            _updateStartBtn();
+            _updateSelectAllLabels();
         }
 
         function renderHome(app) {
-            const subjects = [...new Set(examsData.map(e => e.subject))];
-            const years = [...new Set(examsData.map(e => getYear(e)).filter(Boolean))].sort().reverse();
-            const filteredCount = getFilteredCount();
+            const subjects = _cachedSubjects;
+            const years = _cachedYears;
+            const filteredCount = _fastFilteredCount();
             app.innerHTML = `
                 <main class="max-w-2xl mx-auto py-16 px-6">
                     <div class="bg-white rounded-2xl shadow p-10 text-center">
@@ -498,7 +545,7 @@ if(__exports != exports)module.exports = exports;return module.exports}));
                             <div>
                                 <div class="flex justify-between items-center mb-4">
                                     <label class="text-xs font-bold text-slate-500">選擇科目</label>
-                                    <button onclick="toggleAllSubjects()" class="text-xs text-blue-600 font-medium cursor-pointer" style="background:none;border:none;padding:8px 12px;min-height:44px;min-width:44px;display:flex;align-items:center">${state.selectedSubjects.length === subjects.length ? '取消全選' : '全選'}</button>
+                                    <button id="selectAllSubjectsBtn" onclick="toggleAllSubjects()" class="text-xs text-blue-600 font-medium cursor-pointer" style="background:none;border:none;padding:8px 12px;min-height:44px;min-width:44px;display:flex;align-items:center">${state.selectedSubjects.length === subjects.length ? '取消全選' : '全選'}</button>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2">
                                     ${subjects.map(sub => `<button onclick="toggleSubject('${sub}')" class="py-3 border rounded-lg hover:bg-slate-50 transition home-subject-btn ${state.selectedSubjects.includes(sub) ? 'bg-slate-800 text-white' : ''}">${sub}</button>`).join('')}
@@ -507,7 +554,7 @@ if(__exports != exports)module.exports = exports;return module.exports}));
                             <div>
                                 <div class="flex justify-between items-center mb-4">
                                     <label class="text-xs font-bold text-slate-500">選擇年份</label>
-                                    <button onclick="toggleAllYears()" class="text-xs text-blue-600 font-medium cursor-pointer" style="background:none;border:none;padding:8px 12px;min-height:44px;min-width:44px;display:flex;align-items:center">${state.selectedYears.length === years.length ? '取消全選' : '全選'}</button>
+                                    <button id="selectAllYearsBtn" onclick="toggleAllYears()" class="text-xs text-blue-600 font-medium cursor-pointer" style="background:none;border:none;padding:8px 12px;min-height:44px;min-width:44px;display:flex;align-items:center">${state.selectedYears.length === years.length ? '取消全選' : '全選'}</button>
                                 </div>
                                 <div class="year-btn-wrap">
                                     ${years.map(year => `<button onclick="toggleYear('${year}')" class="w-16 py-3 border rounded-lg hover:bg-slate-50 transition home-year-btn ${state.selectedYears.includes(year) ? 'bg-slate-800 text-white' : ''}">${year}</button>`).join('')}
@@ -660,8 +707,36 @@ if(__exports != exports)module.exports = exports;return module.exports}));
         }
         function showMoreResults() { _resultShowCount += 20; render(); }
 
-        function toggleSubject(s) { if (state.selectedSubjects.includes(s)) state.selectedSubjects = state.selectedSubjects.filter(x => x !== s); else state.selectedSubjects.push(s); render(); }
-        function toggleYear(y) { if (state.selectedYears.includes(y)) state.selectedYears = state.selectedYears.filter(x => x !== y); else state.selectedYears.push(y); render(); }
+        function toggleSubject(s) {
+            var idx = state.selectedSubjects.indexOf(s);
+            if (idx >= 0) state.selectedSubjects.splice(idx, 1);
+            else state.selectedSubjects.push(s);
+            var btns = document.querySelectorAll('.home-subject-btn');
+            for (var i = 0; i < btns.length; i++) {
+                if (btns[i].textContent.trim() === s) {
+                    if (state.selectedSubjects.includes(s)) { btns[i].classList.add('bg-slate-800', 'text-white'); }
+                    else { btns[i].classList.remove('bg-slate-800', 'text-white'); }
+                    break;
+                }
+            }
+            _updateStartBtn();
+            _updateSelectAllLabels();
+        }
+        function toggleYear(y) {
+            var idx = state.selectedYears.indexOf(y);
+            if (idx >= 0) state.selectedYears.splice(idx, 1);
+            else state.selectedYears.push(y);
+            var btns = document.querySelectorAll('.home-year-btn');
+            for (var i = 0; i < btns.length; i++) {
+                if (btns[i].textContent.trim() === y) {
+                    if (state.selectedYears.includes(y)) { btns[i].classList.add('bg-slate-800', 'text-white'); }
+                    else { btns[i].classList.remove('bg-slate-800', 'text-white'); }
+                    break;
+                }
+            }
+            _updateStartBtn();
+            _updateSelectAllLabels();
+        }
         function startQuiz() {
             if (state.selectedSubjects.length === 0 || state.selectedYears.length === 0) return alert('請至少選擇一個科目和一個年份');
             let filtered = [];
