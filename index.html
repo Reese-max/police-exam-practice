@@ -422,7 +422,7 @@ if(__exports != exports)module.exports = exports;return module.exports}));
                 passage = _highlightBlanks(passage, qNumber);
             }
             var html = '<div class="reading-header">' + header + '</div>';
-            html += '<div class="reading-passage">' + passage.replace(/\n\n/g, '</p><p>').replace(/\n/g, ' ') + '</div>';
+            html += '<div class="reading-passage"><p>' + passage.replace(/\n\n/g, '</p><p>').replace(/\n/g, ' ') + '</p></div>';
             if (question) {
                 html += '<div class="reading-question">' + question + '</div>';
             }
@@ -676,7 +676,7 @@ if(__exports != exports)module.exports = exports;return module.exports}));
 
         let _resultShowCount = 20;
         function renderResult(app) {
-            const score = Math.round((state.correctCount / state.currentQuestions.length) * 100);
+            const score = state.currentQuestions.length > 0 ? Math.round((state.correctCount / state.currentQuestions.length) * 100) : 0;
             const wrongItems = [];
             state.currentQuestions.forEach((q, i) => {
                 if (!isCorrectAnswer(state.userAnswers[i], q.answer)) wrongItems.push({ q, i, userAns: state.userAnswers[i] || '未作答' });
