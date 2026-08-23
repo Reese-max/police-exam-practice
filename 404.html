@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,follow">
+<title>正在轉往新版練習系統</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f3f5f7;color:#17212b;font-family:system-ui,-apple-system,"Microsoft JhengHei",sans-serif}.card{max-width:520px;margin:24px;padding:28px;background:#fff;border:1px solid #dbe2e8;border-radius:14px;text-align:center}a{color:#173f5f;font-weight:800}</style>
+<script>
+(function(){
+  var target=new URL('https://reese-max.github.io/police-exam-archive/practice.html');
+  var current=new URLSearchParams(location.search);
+  current.forEach(function(value,key){target.searchParams.append(key,value)});
+  target.searchParams.set('from','legacy');
+  target.searchParams.set('legacyPath',location.pathname);
+  target.hash=location.hash;
+  location.replace(target.href);
+})();
+</script>
+</head>
+<body><main class="card"><h1>頁面已遷移</h1><p>原練習站已整合到統一題庫平台。</p><a href="https://reese-max.github.io/police-exam-archive/practice.html?from=legacy">進入新版練習系統</a></main></body>
+</html>
