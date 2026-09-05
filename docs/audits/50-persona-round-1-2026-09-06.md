@@ -36,3 +36,21 @@ The repository now has a clear compatibility-only contract: all authoritative qu
 ## Runtime status
 
 **Pending.** This Round 1 did not browse the deployed legacy URL or execute the redirect tests.
+
+---
+
+# Round 2 continuation — 2026-09-06
+
+Status: **NO NEW P0/P1/P2 / REDIRECT RUNTIME-PENDING — NOT CLEAN**
+
+No compatibility-code change landed after the Round 1 audit commit. The static redirect contract was rechecked:
+
+- the JavaScript target copies `window.location.search` and `window.location.hash` to the canonical `quiz.html` URL before `location.replace()`;
+- the visible fallback link is updated to the same preserved target;
+- the repository contains no competing question-bank copy in the live page.
+
+The HTML `meta refresh` fallback points to the canonical quiz without query/hash. That difference matters only if the JavaScript compatibility path does not execute; it is recorded as a low-frequency fallback limitation rather than promoted to P0/P1/P2 without evidence that supported clients depend on script-disabled redirect state.
+
+## CLEAN status
+
+Still **NOT CLEAN**. Representative deployed legacy URLs, malformed parameters, redirect-loop behavior and query/hash preservation still require real browser/runtime verification before the two-round CLEAN condition can be satisfied.
