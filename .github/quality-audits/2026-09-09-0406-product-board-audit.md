@@ -109,8 +109,8 @@ Cross-review consensus: **MAINTAIN/SIMPLIFY**. Minority opinion favored leaving 
 
 30 regression-baseline personas (R01–R30, 60%) and 20 rotating exploratory personas (E31–E50, 40%). Every row is a modelled journey, not a human participant.
 
-| # | Background | Goal | Expectation | Task | Journey | Friction | Result | Comment | Severity | Suggestion / switch |
-|---:|---|---|---|---|---|---|---|---|---|---|
+| # | Persona | Background | Goal | Expectation | Task | Journey | Friction | Result | Comment | Severity | Suggestion / switch |
+|---:|---|---|---|---|---|---|---|---|---|---|---|
 | 01 | R01 | 19・警專考生・中熟練・Android/5G・首次 | 從舊收藏回到模擬考 | 自動保留篩選 | 開啟含 subject/hash 的舊連結 | 舊網址→redirect→新版 quiz | 無 | 成功 | 連結可直接續用 | None | 維持 redirect regression；Switch=legacy |
 | 02 | R02 | 27・重考生・高熟練・iPhone/Wi‑Fi・熟練 | 續做警察法規 | 不重新找入口 | 開啟主畫面舊書籤 | 舊網址→新版 quiz | 短暫跳轉 | 成功 | 1.2 秒可接受 | P3 | 保留清楚狀態文案；legacy |
 | 03 | R03 | 34・在職員警・中熟練・Windows/企業網路・熟練 | 利用休息時間刷題 | 舊連結不中斷 | 開啟 query 深連結 | redirect→quiz | 無 | 成功 | 查詢字串保留 | None | 持續自動測試；legacy |
