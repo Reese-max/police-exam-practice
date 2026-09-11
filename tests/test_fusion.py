@@ -62,10 +62,23 @@ class FusionTests(unittest.TestCase):
         self.assertIn(target, self.index)
 
     def test_redirect_preserves_query_and_hash(self) -> None:
-        self.assertTrue(self.manifest["preserve_query_and_hash"])
+        # JS 執行時才保留參數；manifest 與 README 必須誠實標記 js-only
+        self.assertEqual(self.manifest["preserve_query_and_hash"], "js-only")
         self.assertIn("target.search = window.location.search", self.index)
         self.assertIn("target.hash = window.location.hash", self.index)
         self.assertIn("window.location.replace(target.href)", self.index)
+        self.assertIn("js-only", self.readme)
+
+    def test_no_javascript_fallback_is_truthful(self) -> None:
+        # 無 JS 時不得有 meta refresh —— 它會在參數遺失的情況下靜默跳轉
+        self.assertNotRegex(
+            self.index,
+            r'<meta\s+http-equiv=["\']?refresh',
+            "meta refresh 會在無 JavaScript 時丟掉 query/hash",
+        )
+        # 必須有 noscript 區塊向使用者說明無法攜帶參數
+        self.assertRegex(self.index, r"<noscript>")
+        self.assertIn("JavaScript", self.index)
 
     def test_page_is_accessible_fallback_not_blank_redirect(self) -> None:
         self.assertIn('role="status"', self.index)
