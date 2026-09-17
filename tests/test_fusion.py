@@ -101,6 +101,22 @@ class FusionTests(unittest.TestCase):
         self.assertIn("Reese-max/police-exam-archive", self.readme)
         self.assertTrue(self.manifest["legacy_version_available_in_git_history"])
 
+    def test_no_parameter_dropping_meta_refresh(self) -> None:
+        self.assertNotIn(
+            'http-equiv="refresh"',
+            self.index,
+        )
+
+    def test_nojs_recovery_message_and_link(self) -> None:
+        self.assertIn('role="status"', self.index)
+        self.assertIn('id="continue-link"', self.index)
+        self.assertIn("進入新版模擬考", self.index)
+        self.assertIn("noscript", self.index)
+        self.assertIn(
+            "https://reese-max.github.io/police-exam-archive/quiz.html",
+            self.index,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

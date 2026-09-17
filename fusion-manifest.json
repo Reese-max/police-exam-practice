@@ -10,5 +10,6 @@
   "canonical_analytics": "https://reese-max.github.io/police-exam-archive/analytics.html",
   "embedded_question_bank": false,
   "preserve_query_and_hash": true,
+  "preserve_query_and_hash_note": "僅在 JavaScript 啟用時保留；JavaScript 無法執行時使用者須自行重新設定條件與深度連結",
   "legacy_version_available_in_git_history": true
 }
