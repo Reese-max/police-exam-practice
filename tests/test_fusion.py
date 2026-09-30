@@ -23,11 +23,21 @@ class LinkParser(HTMLParser):
         self.canonicals: list[str] = []
         self.external_scripts: list[str] = []
         self.external_styles: list[str] = []
+        self.meta_refresh_targets: list[str] = []
+        self.noscript_links: list[str] = []
+        self.noscript_text: list[str] = []
+        self._noscript_depth = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = dict(attrs)
+        if tag == "noscript":
+            self._noscript_depth += 1
         if tag == "a" and values.get("href"):
             self.links.append(str(values["href"]))
+            if self._noscript_depth:
+                self.noscript_links.append(str(values["href"]))
+        if tag == "meta" and str(values.get("http-equiv") or "").lower() == "refresh":
+            self.meta_refresh_targets.append(str(values.get("content") or ""))
         if tag == "link":
             rel = str(values.get("rel") or "")
             href = str(values.get("href") or "")
@@ -38,6 +48,14 @@ class LinkParser(HTMLParser):
         if tag == "script" and values.get("src"):
             self.external_scripts.append(str(values["src"]))
 
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "noscript" and self._noscript_depth:
+            self._noscript_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if self._noscript_depth:
+            self.noscript_text.append(data)
+
 
 class FusionTests(unittest.TestCase):
     @classmethod
@@ -47,6 +65,7 @@ class FusionTests(unittest.TestCase):
         cls.readme = README.read_text(encoding="utf-8")
         cls.parser = LinkParser()
         cls.parser.feed(cls.index)
+        cls.parser.close()
 
     def test_entry_is_small_and_no_embedded_question_bank(self) -> None:
         self.assertLess(INDEX.stat().st_size, 30_000)
@@ -66,6 +85,27 @@ class FusionTests(unittest.TestCase):
         self.assertIn("target.search = window.location.search", self.index)
         self.assertIn("target.hash = window.location.hash", self.index)
         self.assertIn("window.location.replace(target.href)", self.index)
+
+    def test_no_parameter_dropping_meta_refresh(self) -> None:
+        self.assertEqual(self.parser.meta_refresh_targets, [])
+        self.assertNotRegex(self.index, r'(?i)http-equiv\s*=\s*["\']?\s*refresh')
+
+    def test_noscript_recovery_message_and_link(self) -> None:
+        self.assertIn("<noscript>", self.index)
+        self.assertTrue(self.parser.noscript_links)
+        self.assertIn(self.manifest["canonical_quiz"], self.parser.noscript_links)
+        message = "".join(self.parser.noscript_text)
+        self.assertIn("JavaScript", message)
+        self.assertIn("重新", message)
+
+    def test_preservation_scope_is_documented_as_javascript_only(self) -> None:
+        self.assertEqual(
+            self.manifest.get("preserve_query_and_hash_scope"),
+            "javascript_enabled",
+        )
+        self.assertNotIn("Query string 與 URL hash 會在重新導向時保留。", self.readme)
+        for claim in re.findall(r"[^。]*保留[^。]*", self.readme):
+            self.assertIn("JavaScript", claim, claim)
 
     def test_page_is_accessible_fallback_not_blank_redirect(self) -> None:
         self.assertIn('role="status"', self.index)
