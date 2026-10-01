@@ -12,5 +12,6 @@
   "preserve_query_and_hash": true,
   "preserve_query_and_hash_scope": "javascript_redirect_only",
   "no_javascript_fallback": "noscript_message_with_manual_canonical_link",
+  "script_initialization_failure_fallback": "visible_until_stateful_link_and_redirect_timer_ready",
   "legacy_version_available_in_git_history": true
 }

@@ -102,8 +102,34 @@ class FusionTests(unittest.TestCase):
             "noscript block must contain a keyboard-accessible link to the canonical quiz",
         )
         self.assertIn("JavaScript", block)
-        self.assertRegex(block, r"篩選|深層連結|狀態")
+        self.assertRegex(block, r"查詢條件|深層連結|狀態")
         self.assertRegex(block, r"重新選擇")
+
+    def test_recovery_stays_visible_until_stateful_redirect_is_ready(self) -> None:
+        match = re.search(
+            r"<p(?=[^>]*\bid=\"recovery-note\")[^>]*>(.*?)</p>",
+            self.index,
+            re.IGNORECASE | re.DOTALL,
+        )
+        self.assertIsNotNone(match, "visible recovery message is missing")
+        opening_tag = self.index[self.index.rfind("<p", 0, match.start()):self.index.index(">", match.start()) + 1]
+        self.assertNotRegex(opening_tag, r"\bhidden(?:\s|>)")
+        self.assertNotIn("display:none", opening_tag.replace(" ", "").lower())
+        self.assertRegex(match.group(1), r"停用|未啟用")
+        self.assertRegex(match.group(1), r"封鎖|無法初始化")
+        self.assertRegex(match.group(1), r"query|查詢條件")
+        self.assertRegex(match.group(1), r"hash|錨點")
+        self.assertIn("recovery.hidden = false", self.index)
+        self.assertIn("catch (error)", self.index)
+
+        script = re.search(r"<script>(.*?)</script>", self.index, re.IGNORECASE | re.DOTALL)
+        self.assertIsNotNone(script, "inline compatibility script is missing")
+        code = script.group(1)
+        link_update = code.index("link.href = target.href")
+        timer_schedule = code.index("window.setTimeout")
+        fallback_hide = code.index("recovery.hidden = true")
+        self.assertLess(link_update, timer_schedule)
+        self.assertLess(timer_schedule, fallback_hide)
 
     def test_readme_scopes_preservation_to_javascript(self) -> None:
         claims = [
@@ -119,11 +145,17 @@ class FusionTests(unittest.TestCase):
                 line,
                 "preservation claim must state that it only applies with JavaScript",
             )
+        self.assertIn("初始化失敗", self.readme)
+        self.assertIn("手動連結", self.readme)
 
     def test_manifest_scopes_preservation_to_javascript(self) -> None:
         self.assertEqual(
             self.manifest.get("preserve_query_and_hash_scope"),
             "javascript_redirect_only",
+        )
+        self.assertEqual(
+            self.manifest.get("script_initialization_failure_fallback"),
+            "visible_until_stateful_link_and_redirect_timer_ready",
         )
 
     def test_search_engines_do_not_index_duplicate_entry(self) -> None:
