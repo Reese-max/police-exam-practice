@@ -75,6 +75,57 @@ class FusionTests(unittest.TestCase):
         self.assertIn("全文搜尋", self.index)
         self.assertIn("出題統計", self.index)
 
+    def test_no_parameter_dropping_meta_refresh(self) -> None:
+        self.assertIsNone(
+            re.search(
+                r"<meta[^>]+http-equiv\s*=\s*[\"']?refresh",
+                self.index,
+                re.IGNORECASE,
+            ),
+            "meta refresh can only target the bare canonical URL and would "
+            "silently drop the incoming query string and fragment",
+        )
+
+    def test_noscript_recovery_message_links_to_canonical_quiz(self) -> None:
+        match = re.search(
+            r"<noscript[^>]*>(.*?)</noscript>",
+            self.index,
+            re.IGNORECASE | re.DOTALL,
+        )
+        self.assertIsNotNone(match, "no-JavaScript recovery block is missing")
+        block = match.group(1)
+        parser = LinkParser()
+        parser.feed(block)
+        self.assertIn(
+            self.manifest["canonical_quiz"],
+            parser.links,
+            "noscript block must contain a keyboard-accessible link to the canonical quiz",
+        )
+        self.assertIn("JavaScript", block)
+        self.assertRegex(block, r"篩選|深層連結|狀態")
+        self.assertRegex(block, r"重新選擇")
+
+    def test_readme_scopes_preservation_to_javascript(self) -> None:
+        claims = [
+            line
+            for line in self.readme.splitlines()
+            if "保留" in line
+            and re.search(r"query|string|hash|查詢", line, re.IGNORECASE)
+        ]
+        self.assertTrue(claims, "README no longer documents query/hash handling")
+        for line in claims:
+            self.assertIn(
+                "JavaScript",
+                line,
+                "preservation claim must state that it only applies with JavaScript",
+            )
+
+    def test_manifest_scopes_preservation_to_javascript(self) -> None:
+        self.assertEqual(
+            self.manifest.get("preserve_query_and_hash_scope"),
+            "javascript_redirect_only",
+        )
+
     def test_search_engines_do_not_index_duplicate_entry(self) -> None:
         self.assertRegex(self.index, r'<meta\s+name="robots"\s+content="noindex,follow">')
 
@@ -88,6 +139,7 @@ class FusionTests(unittest.TestCase):
     def test_no_external_runtime_dependencies(self) -> None:
         self.assertEqual(self.parser.external_scripts, [])
         self.assertEqual(self.parser.external_styles, [])
+        self.assertNotRegex(self.index, r"@import|url\(|<img|<iframe|srcset")
 
     def test_no_stale_year_range_or_old_product_claim(self) -> None:
         self.assertNotRegex(self.index + self.readme, r"110\s*[–-]\s*114")
