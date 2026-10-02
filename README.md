@@ -42,7 +42,9 @@ police-exam-practice
 1. 題庫與功能修改只進 `police-exam-archive`。
 2. 本 Repository 不再內嵌或複製題庫。
 3. 舊版 2.56 MB 單頁網站仍可從 Git 歷史查閱或還原。
-4. Query string 與 URL hash 會在重新導向時保留。
+4. 啟用 JavaScript 時，Query string 與 URL hash 會在自動重新導向時保留；
+   未啟用 JavaScript 時本頁不自動跳轉，改為顯示說明與手動連結，
+   進入新版後需重新選擇篩選條件與題目狀態。
 5. Pull Request 必須通過 `Fusion compatibility check`。
 
 ## 本地驗證

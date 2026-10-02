@@ -9,6 +9,10 @@
   "canonical_search": "https://reese-max.github.io/police-exam-archive/search.html",
   "canonical_analytics": "https://reese-max.github.io/police-exam-archive/analytics.html",
   "embedded_question_bank": false,
-  "preserve_query_and_hash": true,
+  "preserve_query_and_hash": {
+    "javascript_redirect": true,
+    "no_javascript": false,
+    "fallback": "noscript recovery message with a manual link to the canonical quiz; filters and deep-link state must be reselected"
+  },
   "legacy_version_available_in_git_history": true
 }
