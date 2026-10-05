@@ -62,10 +62,62 @@ class FusionTests(unittest.TestCase):
         self.assertIn(target, self.index)
 
     def test_redirect_preserves_query_and_hash(self) -> None:
-        self.assertTrue(self.manifest["preserve_query_and_hash"])
-        self.assertIn("target.search = window.location.search", self.index)
-        self.assertIn("target.hash = window.location.hash", self.index)
-        self.assertIn("window.location.replace(target.href)", self.index)
+        preserve = self.manifest["preserve_query_and_hash"]
+        self.assertIsInstance(preserve, dict)
+        self.assertTrue(preserve["javascript_redirect"])
+        self.assertFalse(preserve["no_javascript"])
+        script = re.search(
+            r"<script[^>]*>(.*?)</script>",
+            self.index,
+            re.IGNORECASE | re.DOTALL,
+        )
+        self.assertIsNotNone(script, "inline compatibility script is missing")
+        code = script.group(1)
+        self.assertIn("target.search = window.location.search", code)
+        self.assertIn("target.hash = window.location.hash", code)
+        self.assertIn("window.location.replace(target.href)", code)
+
+    def test_no_meta_refresh_parameter_dropping_redirect(self) -> None:
+        self.assertNotRegex(
+            self.index,
+            r'(?i)http-equiv\s*=\s*["\']?refresh',
+        )
+
+    def test_noscript_recovery_links_canonical_and_warns_about_state(self) -> None:
+        match = re.search(
+            r"<noscript[^>]*>(.*?)</noscript>",
+            self.index,
+            re.IGNORECASE | re.DOTALL,
+        )
+        self.assertIsNotNone(match, "index.html must include a <noscript> recovery block")
+        block = match.group(1)
+        parser = LinkParser()
+        parser.feed(block)
+        self.assertIn(
+            self.manifest["canonical_quiz"],
+            parser.links,
+            "noscript block must link to the canonical quiz",
+        )
+        self.assertIn("JavaScript", block)
+        self.assertRegex(block, r"重新選擇")
+
+    def test_readme_scopes_preservation_to_javascript_path(self) -> None:
+        self.assertNotIn(
+            "Query string 與 URL hash 會在重新導向時保留。",
+            self.readme,
+        )
+        claims = [
+            line
+            for line in self.readme.splitlines()
+            if "保留" in line and re.search(r"query|string|hash|查詢", line, re.IGNORECASE)
+        ]
+        self.assertTrue(claims, "README must still document query/hash handling")
+        for line in claims:
+            self.assertIn(
+                "JavaScript",
+                line,
+                "preservation claim must state it only applies with JavaScript",
+            )
 
     def test_page_is_accessible_fallback_not_blank_redirect(self) -> None:
         self.assertIn('role="status"', self.index)
