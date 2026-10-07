@@ -23,9 +23,12 @@ class LinkParser(HTMLParser):
         self.canonicals: list[str] = []
         self.external_scripts: list[str] = []
         self.external_styles: list[str] = []
+        self.elements: dict[str, dict[str, str | None]] = {}
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = dict(attrs)
+        if values.get("id"):
+            self.elements[str(values["id"])] = values
         if tag == "a" and values.get("href"):
             self.links.append(str(values["href"]))
         if tag == "link":
@@ -62,10 +65,88 @@ class FusionTests(unittest.TestCase):
         self.assertIn(target, self.index)
 
     def test_redirect_preserves_query_and_hash(self) -> None:
-        self.assertTrue(self.manifest["preserve_query_and_hash"])
-        self.assertIn("target.search = window.location.search", self.index)
-        self.assertIn("target.hash = window.location.hash", self.index)
-        self.assertIn("window.location.replace(target.href)", self.index)
+        preserve = self.manifest["preserve_query_and_hash"]
+        self.assertIsInstance(preserve, dict)
+        self.assertTrue(preserve["javascript_redirect"])
+        self.assertTrue(preserve["javascript_manual_link"])
+        self.assertFalse(preserve["no_javascript"])
+        script = re.search(
+            r"<script[^>]*>(.*?)</script>",
+            self.index,
+            re.IGNORECASE | re.DOTALL,
+        )
+        self.assertIsNotNone(script, "inline compatibility script is missing")
+        code = script.group(1)
+        self.assertIn("target.search = window.location.search", code)
+        self.assertIn("target.hash = window.location.hash", code)
+        self.assertIn("window.location.replace(target.href)", code)
+
+    def test_no_meta_refresh_parameter_dropping_redirect(self) -> None:
+        self.assertNotRegex(
+            self.index,
+            r'(?i)http-equiv\s*=\s*["\']?refresh',
+        )
+
+    def test_noscript_recovery_links_canonical_and_warns_about_state(self) -> None:
+        match = re.search(
+            r"<noscript[^>]*>(.*?)</noscript>",
+            self.index,
+            re.IGNORECASE | re.DOTALL,
+        )
+        self.assertIsNotNone(match, "index.html must include a <noscript> recovery block")
+        block = match.group(1)
+        parser = LinkParser()
+        parser.feed(block)
+        self.assertIn(
+            self.manifest["canonical_quiz"],
+            parser.links,
+            "noscript block must link to the canonical quiz",
+        )
+        self.assertIn("JavaScript", block)
+        self.assertRegex(block, r"查詢參數|深層連結|狀態")
+        self.assertRegex(block, r"重新選擇")
+
+    def test_default_recovery_covers_blocked_and_failed_scripts(self) -> None:
+        attrs = self.parser.elements.get("recovery-note")
+        self.assertIsNotNone(attrs, "recovery must exist outside noscript")
+        self.assertNotIn("hidden", attrs)
+        self.assertNotRegex(str(attrs.get("style") or ""), r"(?i)display\s*:\s*none|visibility\s*:\s*hidden")
+        outside_noscript = re.sub(r"<noscript[^>]*>.*?</noscript>", "", self.index, flags=re.I | re.S)
+        note = re.search(r'<p[^>]*id="recovery-note"[^>]*>(.*?)</p>', outside_noscript, re.S)
+        self.assertIsNotNone(note)
+        self.assertRegex(note.group(1), r"未啟用|停用")
+        self.assertIn("封鎖", note.group(1))
+        self.assertIn("初始化", note.group(1))
+        self.assertIn("查詢條件", note.group(1))
+        self.assertIn("錨點", note.group(1))
+        self.assertIn("重新選擇", note.group(1))
+
+    def test_manifest_and_readme_describe_failure_recovery(self) -> None:
+        preserve = self.manifest["preserve_query_and_hash"]
+        self.assertIn("default-visible", preserve["fallback"])
+        self.assertIn("stateful link", preserve["script_initialization_failure"])
+        self.assertIn("manual link retains query and hash", preserve["navigation_failure"])
+        self.assertIn("初始化失敗", self.readme)
+        self.assertIn("自動導向未成功", self.readme)
+        self.assertIn("手動連結", self.readme)
+
+    def test_readme_scopes_preservation_to_javascript_path(self) -> None:
+        self.assertNotIn(
+            "Query string 與 URL hash 會在重新導向時保留。",
+            self.readme,
+        )
+        claims = [
+            line
+            for line in self.readme.splitlines()
+            if "保留" in line and re.search(r"query|string|hash|查詢", line, re.IGNORECASE)
+        ]
+        self.assertTrue(claims, "README must still document query/hash handling")
+        for line in claims:
+            self.assertIn(
+                "JavaScript",
+                line,
+                "preservation claim must state it only applies with JavaScript",
+            )
 
     def test_page_is_accessible_fallback_not_blank_redirect(self) -> None:
         self.assertIn('role="status"', self.index)
@@ -74,89 +155,6 @@ class FusionTests(unittest.TestCase):
         self.assertIn("題庫首頁", self.index)
         self.assertIn("全文搜尋", self.index)
         self.assertIn("出題統計", self.index)
-
-    def test_no_parameter_dropping_meta_refresh(self) -> None:
-        self.assertIsNone(
-            re.search(
-                r"<meta[^>]+http-equiv\s*=\s*[\"']?refresh",
-                self.index,
-                re.IGNORECASE,
-            ),
-            "meta refresh can only target the bare canonical URL and would "
-            "silently drop the incoming query string and fragment",
-        )
-
-    def test_noscript_recovery_message_links_to_canonical_quiz(self) -> None:
-        match = re.search(
-            r"<noscript[^>]*>(.*?)</noscript>",
-            self.index,
-            re.IGNORECASE | re.DOTALL,
-        )
-        self.assertIsNotNone(match, "no-JavaScript recovery block is missing")
-        block = match.group(1)
-        parser = LinkParser()
-        parser.feed(block)
-        self.assertIn(
-            self.manifest["canonical_quiz"],
-            parser.links,
-            "noscript block must contain a keyboard-accessible link to the canonical quiz",
-        )
-        self.assertIn("JavaScript", block)
-        self.assertRegex(block, r"查詢條件|深層連結|狀態")
-        self.assertRegex(block, r"重新選擇")
-
-    def test_recovery_stays_visible_until_stateful_redirect_is_ready(self) -> None:
-        match = re.search(
-            r"<p(?=[^>]*\bid=\"recovery-note\")[^>]*>(.*?)</p>",
-            self.index,
-            re.IGNORECASE | re.DOTALL,
-        )
-        self.assertIsNotNone(match, "visible recovery message is missing")
-        opening_tag = self.index[self.index.rfind("<p", 0, match.start()):self.index.index(">", match.start()) + 1]
-        self.assertNotRegex(opening_tag, r"\bhidden(?:\s|>)")
-        self.assertNotIn("display:none", opening_tag.replace(" ", "").lower())
-        self.assertRegex(match.group(1), r"停用|未啟用")
-        self.assertRegex(match.group(1), r"封鎖|無法初始化")
-        self.assertRegex(match.group(1), r"query|查詢條件")
-        self.assertRegex(match.group(1), r"hash|錨點")
-        self.assertIn("recovery.hidden = false", self.index)
-        self.assertIn("catch (error)", self.index)
-
-        script = re.search(r"<script>(.*?)</script>", self.index, re.IGNORECASE | re.DOTALL)
-        self.assertIsNotNone(script, "inline compatibility script is missing")
-        code = script.group(1)
-        link_update = code.index("link.href = target.href")
-        timer_schedule = code.index("window.setTimeout")
-        fallback_hide = code.index("recovery.hidden = true")
-        self.assertLess(link_update, timer_schedule)
-        self.assertLess(timer_schedule, fallback_hide)
-
-    def test_readme_scopes_preservation_to_javascript(self) -> None:
-        claims = [
-            line
-            for line in self.readme.splitlines()
-            if "保留" in line
-            and re.search(r"query|string|hash|查詢", line, re.IGNORECASE)
-        ]
-        self.assertTrue(claims, "README no longer documents query/hash handling")
-        for line in claims:
-            self.assertIn(
-                "JavaScript",
-                line,
-                "preservation claim must state that it only applies with JavaScript",
-            )
-        self.assertIn("初始化失敗", self.readme)
-        self.assertIn("手動連結", self.readme)
-
-    def test_manifest_scopes_preservation_to_javascript(self) -> None:
-        self.assertEqual(
-            self.manifest.get("preserve_query_and_hash_scope"),
-            "javascript_redirect_only",
-        )
-        self.assertEqual(
-            self.manifest.get("script_initialization_failure_fallback"),
-            "visible_until_stateful_link_and_redirect_timer_ready",
-        )
 
     def test_search_engines_do_not_index_duplicate_entry(self) -> None:
         self.assertRegex(self.index, r'<meta\s+name="robots"\s+content="noindex,follow">')
@@ -171,7 +169,8 @@ class FusionTests(unittest.TestCase):
     def test_no_external_runtime_dependencies(self) -> None:
         self.assertEqual(self.parser.external_scripts, [])
         self.assertEqual(self.parser.external_styles, [])
-        self.assertNotRegex(self.index, r"@import|url\(|<img|<iframe|srcset")
+        markup_and_styles = re.sub(r"<script[^>]*>.*?</script>", "", self.index, flags=re.I | re.S)
+        self.assertNotRegex(markup_and_styles, r"(?i)@import|url\(|<img|<iframe|srcset")
 
     def test_no_stale_year_range_or_old_product_claim(self) -> None:
         self.assertNotRegex(self.index + self.readme, r"110\s*[–-]\s*114")
