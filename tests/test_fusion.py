@@ -23,9 +23,12 @@ class LinkParser(HTMLParser):
         self.canonicals: list[str] = []
         self.external_scripts: list[str] = []
         self.external_styles: list[str] = []
+        self.elements: dict[str, dict[str, str | None]] = {}
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = dict(attrs)
+        if values.get("id"):
+            self.elements[str(values["id"])] = values
         if tag == "a" and values.get("href"):
             self.links.append(str(values["href"]))
         if tag == "link":
@@ -65,6 +68,7 @@ class FusionTests(unittest.TestCase):
         preserve = self.manifest["preserve_query_and_hash"]
         self.assertIsInstance(preserve, dict)
         self.assertTrue(preserve["javascript_redirect"])
+        self.assertTrue(preserve["javascript_manual_link"])
         self.assertFalse(preserve["no_javascript"])
         script = re.search(
             r"<script[^>]*>(.*?)</script>",
@@ -99,7 +103,32 @@ class FusionTests(unittest.TestCase):
             "noscript block must link to the canonical quiz",
         )
         self.assertIn("JavaScript", block)
+        self.assertRegex(block, r"查詢參數|深層連結|狀態")
         self.assertRegex(block, r"重新選擇")
+
+    def test_default_recovery_covers_blocked_and_failed_scripts(self) -> None:
+        attrs = self.parser.elements.get("recovery-note")
+        self.assertIsNotNone(attrs, "recovery must exist outside noscript")
+        self.assertNotIn("hidden", attrs)
+        self.assertNotRegex(str(attrs.get("style") or ""), r"(?i)display\s*:\s*none|visibility\s*:\s*hidden")
+        outside_noscript = re.sub(r"<noscript[^>]*>.*?</noscript>", "", self.index, flags=re.I | re.S)
+        note = re.search(r'<p[^>]*id="recovery-note"[^>]*>(.*?)</p>', outside_noscript, re.S)
+        self.assertIsNotNone(note)
+        self.assertRegex(note.group(1), r"未啟用|停用")
+        self.assertIn("封鎖", note.group(1))
+        self.assertIn("初始化", note.group(1))
+        self.assertIn("查詢條件", note.group(1))
+        self.assertIn("錨點", note.group(1))
+        self.assertIn("重新選擇", note.group(1))
+
+    def test_manifest_and_readme_describe_failure_recovery(self) -> None:
+        preserve = self.manifest["preserve_query_and_hash"]
+        self.assertIn("default-visible", preserve["fallback"])
+        self.assertIn("stateful link", preserve["script_initialization_failure"])
+        self.assertIn("manual link retains query and hash", preserve["navigation_failure"])
+        self.assertIn("初始化失敗", self.readme)
+        self.assertIn("自動導向未成功", self.readme)
+        self.assertIn("手動連結", self.readme)
 
     def test_readme_scopes_preservation_to_javascript_path(self) -> None:
         self.assertNotIn(
@@ -140,6 +169,8 @@ class FusionTests(unittest.TestCase):
     def test_no_external_runtime_dependencies(self) -> None:
         self.assertEqual(self.parser.external_scripts, [])
         self.assertEqual(self.parser.external_styles, [])
+        markup_and_styles = re.sub(r"<script[^>]*>.*?</script>", "", self.index, flags=re.I | re.S)
+        self.assertNotRegex(markup_and_styles, r"(?i)@import|url\(|<img|<iframe|srcset")
 
     def test_no_stale_year_range_or_old_product_claim(self) -> None:
         self.assertNotRegex(self.index + self.readme, r"110\s*[–-]\s*114")

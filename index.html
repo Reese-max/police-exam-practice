@@ -73,13 +73,14 @@
       border-top: 1px solid var(--line);
     }
     nav a { color: var(--primary); font-weight: 650; }
-    .noscript-note {
+    .recovery-note, .noscript-note {
       margin-top: 18px;
       padding: 12px 14px;
       border: 1px solid var(--line);
       border-radius: 8px;
       color: var(--text);
     }
+    .recovery-note[hidden] { display: none; }
     .noscript-note a { color: var(--primary); font-weight: 650; }
     code {
       padding: 2px 5px;
@@ -96,7 +97,12 @@
       統計及 115 年資料現在共用同一套來源，避免兩個網站內容不同步。
     </p>
     <p id="redirect-status" role="status" aria-live="polite">
-      啟用 JavaScript 時會自動前往新版模擬考並保留原有查詢條件；未跳轉時請使用下方連結。
+      啟用 JavaScript 且相容程式成功啟動時，本頁會嘗試自動前往新版模擬考。
+    </p>
+
+    <p id="recovery-note" class="recovery-note">
+      若 JavaScript 未啟用、遭封鎖或無法初始化，本頁不會自動跳轉，手動連結也不會攜帶原網址的查詢條件與錨點。
+      請使用下方連結前往新版模擬考，並重新選擇科目與題目。
     </p>
 
     <noscript>
@@ -125,16 +131,44 @@
   <script>
   (function () {
     "use strict";
-    var target = new URL("https://reese-max.github.io/police-exam-archive/quiz.html");
-    target.search = window.location.search;
-    target.hash = window.location.hash;
-
     var link = document.getElementById("continue-link");
-    link.href = target.href;
+    var recovery = document.getElementById("recovery-note");
+    var status = document.getElementById("redirect-status");
+    if (!link || !recovery || !status) return;
+    var statefulLinkReady = false;
 
-    window.setTimeout(function () {
-      window.location.replace(target.href);
-    }, 1200);
+    function showRecovery(message) {
+      recovery.hidden = false;
+      status.textContent = message;
+      if (statefulLinkReady) {
+        recovery.textContent = "下方「進入新版模擬考」連結已保留原網址的查詢條件與錨點，請手動前往。";
+      }
+    }
+
+    try {
+      var target = new URL("https://reese-max.github.io/police-exam-archive/quiz.html");
+      target.search = window.location.search;
+      target.hash = window.location.hash;
+      link.href = target.href;
+      statefulLinkReady = true;
+
+      var redirectTimer = window.setTimeout(function () {
+        // Keep recovery available even if the browser declines navigation without throwing.
+        showRecovery("若未自動跳轉，請使用下方連結。");
+        try {
+          window.location.replace(target.href);
+        } catch (error) {
+          showRecovery("自動導向未成功，請使用下方連結。");
+        }
+      }, 1200);
+
+      if (redirectTimer !== undefined && redirectTimer !== null) {
+        status.textContent = "即將前往新版模擬考；若沒有自動跳轉，請使用下方按鈕。";
+        recovery.hidden = true;
+      }
+    } catch (error) {
+      showRecovery("自動導向無法初始化，請使用下方說明與連結。");
+    }
   })();
   </script>
 </body>

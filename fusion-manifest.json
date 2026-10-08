@@ -11,8 +11,11 @@
   "embedded_question_bank": false,
   "preserve_query_and_hash": {
     "javascript_redirect": true,
+    "javascript_manual_link": true,
     "no_javascript": false,
-    "fallback": "noscript recovery message with a manual link to the canonical quiz; filters and deep-link state must be reselected"
+    "fallback": "default-visible recovery and noscript messages with a manual canonical link; filters and deep-link state must be reselected when the stateful link could not be initialized",
+    "script_initialization_failure": "recovery stays visible until the stateful link and redirect timer are ready",
+    "navigation_failure": "recovery is restored at the navigation attempt; the initialized manual link retains query and hash"
   },
   "legacy_version_available_in_git_history": true
 }
