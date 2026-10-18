@@ -1,0 +1,12 @@
+{
+  "repo": "Reese-max/police-exam-practice",
+  "issue": 5,
+  "base_sha": "6df9f66d0a31a9005123611d9967d4493b7a897b",
+  "red_proof": "Before implementation, `python -B -m unittest discover -s tests -v` exited 1: Ran 13 tests; FAILED (failures=6). test_script_failure_has_static_recovery_warning failed with 'JavaScript' not found in the original redirect status. test_fallback_checks_reject_regressions failed with AssertionError: AssertionError not raised for three missing/empty/incomplete noscript variants and two valid meta-refresh variants (single-quoted and uppercase attributes). Isolated Chromium 156.0.8078.4 also exited 1 before the fix: csp-blocked and early-failure both reported Visible fallback warning missing (2 passed, 2 failed).",
+  "test_command": "python -B -m unittest discover -s tests -v",
+  "test_exit": 0,
+  "tests_passed": 13,
+  "tests_failed": 0,
+  "summary": "Made the fallback warning visible before navigation even when inline JavaScript is blocked or fails, and qualified README/manifest wording by successful execution. Reused the standard-library HTML parser to reject equivalent meta-refresh markup and validate the actual noscript explanation/link; five negative mutations now verify those checks. The full Git Bash test command passes all 13 tests, and isolated Chromium verifies normal exact query/hash preservation plus keyboard recovery without timed navigation for disabled, CSP-blocked, and early-failed scripts.",
+  "not_done": "No push, PR comment, branch switch, merge, deployment, or issue closure. Browser checks use the exact local index.html with all network requests intercepted and a canonical destination fixture; public/deployed destination behavior, physical assistive technology, and the full 50-persona audit are not verified."
+}

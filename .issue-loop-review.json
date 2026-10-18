@@ -1,0 +1,26 @@
+{
+  "pr": 5,
+  "head": "6df9f66d0a31a9005123611d9967d4493b7a897b",
+  "findings": [
+    {
+      "severity": "med",
+      "file": "index.html",
+      "line": 123,
+      "issue": "The recovery warning exists only in noscript. When CSP blocks the inline script or initialization throws while scripting remains enabled, noscript is hidden and the bare continue link silently drops the incoming query/hash. Render the limitation in the static fallback before navigation."
+    },
+    {
+      "severity": "med",
+      "file": "tests/test_fusion.py",
+      "line": 110,
+      "issue": "The no-JavaScript regression checks page-wide strings instead of the recovery block. Replacing the block with an empty noscript still passes all 11 tests, so removal of both the explanation and its canonical link violates issue #3 AC5 without failing CI."
+    },
+    {
+      "severity": "med",
+      "file": "tests/test_fusion.py",
+      "line": 104,
+      "issue": "The meta-refresh regression only rejects one exact double-quoted spelling. Valid single-quoted or uppercase refresh attributes reintroduce automatic parameter-dropping navigation while all tests still pass; parse HTML attributes instead."
+    }
+  ],
+  "fixed": true,
+  "summary": "Fixed three medium findings: CSP/early-script-failure recovery lacked a visible warning, and the no-JavaScript/meta-refresh tests accepted broken fallback markup. Regression tests failed before the fixes and now all 13 tests pass; isolated Chromium checks also verify exact query/hash preservation and keyboard recovery for disabled, blocked, and failed JavaScript. No API-contract decision, push, or deployment was required."
+}

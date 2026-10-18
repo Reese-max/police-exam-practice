@@ -23,6 +23,8 @@ class LinkParser(HTMLParser):
         self.canonicals: list[str] = []
         self.external_scripts: list[str] = []
         self.external_styles: list[str] = []
+        self.meta_refreshes: list[str] = []
+        self.text: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = dict(attrs)
@@ -37,6 +39,11 @@ class LinkParser(HTMLParser):
                 self.external_styles.append(href)
         if tag == "script" and values.get("src"):
             self.external_scripts.append(str(values["src"]))
+        if tag == "meta" and str(values.get("http-equiv") or "").strip().lower() == "refresh":
+            self.meta_refreshes.append(str(values.get("content") or ""))
+
+    def handle_data(self, data: str) -> None:
+        self.text.append(data)
 
 
 class FusionTests(unittest.TestCase):
@@ -102,20 +109,54 @@ class FusionTests(unittest.TestCase):
         self.assertTrue(self.manifest["legacy_version_available_in_git_history"])
 
     def test_no_parameter_dropping_meta_refresh(self) -> None:
-        self.assertNotIn(
-            'http-equiv="refresh"',
-            self.index,
-        )
+        self.assertEqual(self.parser.meta_refreshes, [])
 
     def test_nojs_recovery_message_and_link(self) -> None:
-        self.assertIn('role="status"', self.index)
-        self.assertIn('id="continue-link"', self.index)
-        self.assertIn("進入新版模擬考", self.index)
-        self.assertIn("noscript", self.index)
-        self.assertIn(
-            "https://reese-max.github.io/police-exam-archive/quiz.html",
-            self.index,
+        recovery = re.search(r"<noscript\b[^>]*>(.*?)</noscript\s*>", self.index, re.S | re.I)
+        self.assertIsNotNone(recovery)
+        parser = LinkParser()
+        parser.feed(recovery.group(1))
+        self.assertIn(self.manifest["canonical_quiz"], parser.links)
+        for text in ("JavaScript", "深度連結", "重新設定", "新版模擬考"):
+            self.assertIn(text, "".join(parser.text))
+
+    def test_script_failure_has_static_recovery_warning(self) -> None:
+        status = re.search(
+            r'<p\b[^>]*id="redirect-status"[^>]*>(.*?)</p>', self.index, re.S
         )
+        self.assertIsNotNone(status)
+        for text in ("JavaScript", "深度連結", "重新設定"):
+            self.assertIn(text, status.group(1))
+
+    def test_fallback_checks_reject_regressions(self) -> None:
+        nojs = "<noscript><p>JavaScript 無法執行時，搜尋條件與深度連結須重新設定。</p></noscript>"
+        mutations = [
+            ("test_nojs_recovery_message_and_link", "<noscript></noscript>"),
+            ("test_nojs_recovery_message_and_link", nojs),
+            (
+                "test_nojs_recovery_message_and_link",
+                '<noscript><a href="' + self.manifest["canonical_quiz"] + '">新版模擬考</a></noscript>',
+            ),
+            (
+                "test_no_parameter_dropping_meta_refresh",
+                "<meta http-equiv='refresh' content='2;url=" + self.manifest["canonical_quiz"] + "'>",
+            ),
+            (
+                "test_no_parameter_dropping_meta_refresh",
+                '<META HTTP-EQUIV="Refresh" CONTENT="2;url=' + self.manifest["canonical_quiz"] + '">',
+            ),
+        ]
+        for test_name, replacement in mutations:
+            with self.subTest(test=test_name, replacement=replacement):
+                case = FusionTests(test_name)
+                if test_name == "test_nojs_recovery_message_and_link":
+                    case.index = re.sub(r"<noscript>.*?</noscript>", replacement, self.index, flags=re.S)
+                else:
+                    case.index = self.index.replace("<head>", "<head>" + replacement)
+                case.parser = LinkParser()
+                case.parser.feed(case.index)
+                with self.assertRaises(AssertionError):
+                    getattr(case, test_name)()
 
 
 if __name__ == "__main__":
