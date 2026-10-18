@@ -23,11 +23,21 @@ class LinkParser(HTMLParser):
         self.canonicals: list[str] = []
         self.external_scripts: list[str] = []
         self.external_styles: list[str] = []
+        self.text: list[str] = []
+        self.links_by_id: dict[str, str] = {}
+        self.ignored_tag: str | None = None
+        self.meta_refreshes: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = dict(attrs)
+        if self.ignored_tag is None and tag in {"script", "style", "noscript"}:
+            self.ignored_tag = tag
+        if tag == "meta" and str(values.get("http-equiv") or "").strip().lower() == "refresh":
+            self.meta_refreshes.append(str(values.get("content") or ""))
         if tag == "a" and values.get("href"):
             self.links.append(str(values["href"]))
+            if self.ignored_tag is None and values.get("id"):
+                self.links_by_id[str(values["id"])] = str(values["href"])
         if tag == "link":
             rel = str(values.get("rel") or "")
             href = str(values.get("href") or "")
@@ -37,6 +47,14 @@ class LinkParser(HTMLParser):
                 self.external_styles.append(href)
         if tag == "script" and values.get("src"):
             self.external_scripts.append(str(values["src"]))
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == self.ignored_tag:
+            self.ignored_tag = None
+
+    def handle_data(self, data: str) -> None:
+        if self.ignored_tag is None:
+            self.text.append(data)
 
 
 class FusionTests(unittest.TestCase):
@@ -70,15 +88,63 @@ class FusionTests(unittest.TestCase):
         self.assertIn("js-only", self.readme)
 
     def test_no_javascript_fallback_is_truthful(self) -> None:
-        # 無 JS 時不得有 meta refresh —— 它會在參數遺失的情況下靜默跳轉
-        self.assertNotRegex(
+        self.assert_fallback_contract(self.index)
+
+    def assert_fallback_contract(self, index: str) -> None:
+        parser = LinkParser()
+        parser.feed(index)
+        self.assertEqual(parser.meta_refreshes, [], "meta refresh 會丟掉 query/hash")
+        # noscript 無法涵蓋腳本遭封鎖或初始化失敗，復原說明必須預設可讀。
+        text = " ".join(parser.text)
+        for phrase in ("JavaScript", "查詢參數", "網址片段", "重新選擇"):
+            self.assertIn(phrase, text)
+        self.assertEqual(parser.links_by_id.get("continue-link"), self.manifest["canonical_quiz"])
+
+    def test_recovery_is_visible_when_inline_script_does_not_run(self) -> None:
+        text = " ".join(self.parser.text)
+        for phrase in ("JavaScript", "查詢參數", "網址片段", "重新選擇"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+        self.assertNotIn("即將前往", text)
+
+    def test_fallback_guard_rejects_meta_refresh_variants(self) -> None:
+        target = self.manifest["canonical_quiz"]
+        for meta in (
+            f'<META HTTP-EQUIV="REFRESH" CONTENT="0;url={target}">',
+            f'<meta content="0;url={target}" http-equiv="refresh">',
+            f'<meta http-equiv = "Refresh" content="0;url={target}">',
+        ):
+            with self.subTest(meta=meta), self.assertRaises(AssertionError):
+                self.assert_fallback_contract(self.index.replace("</head>", meta + "</head>"))
+
+    def test_fallback_guard_rejects_missing_warning_or_wrong_link(self) -> None:
+        warning = re.search(
+            r'<noscript>.*?</noscript>|<p id="redirect-fallback"[^>]*>.*?</p>',
             self.index,
-            r'<meta\s+http-equiv=["\']?refresh',
-            "meta refresh 會在無 JavaScript 時丟掉 query/hash",
+            re.DOTALL,
         )
-        # 必須有 noscript 區塊向使用者說明無法攜帶參數
-        self.assertRegex(self.index, r"<noscript>")
-        self.assertIn("JavaScript", self.index)
+        self.assertIsNotNone(warning)
+        for name, broken in (
+            ("commented warning", self.index.replace(warning[0], "<!--" + warning[0] + "-->")),
+            (
+                "missing manual href",
+                re.sub(
+                    r'(<a\b[^>]*id="continue-link")\s+href="[^"]+"',
+                    r'\g<1>',
+                    self.index,
+                ),
+            ),
+            (
+                "wrong manual destination",
+                re.sub(
+                    r'(<a\b[^>]*id="continue-link"\s+href=")[^"]+',
+                    r'\g<1>https://github.com/Reese-max/police-exam-archive',
+                    self.index,
+                ),
+            ),
+        ):
+            with self.subTest(mutation=name), self.assertRaises(AssertionError):
+                self.assert_fallback_contract(broken)
 
     def test_page_is_accessible_fallback_not_blank_redirect(self) -> None:
         self.assertIn('role="status"', self.index)

@@ -89,7 +89,7 @@
       統計及 115 年資料現在共用同一套來源，避免兩個網站內容不同步。
     </p>
     <p id="redirect-status" role="status" aria-live="polite">
-      即將前往新版模擬考；未自動跳轉時，請使用下方按鈕。
+      若 JavaScript 可正常執行，本頁會自動前往新版模擬考；未自動跳轉時，請使用下方按鈕。
     </p>
 
     <a class="primary" id="continue-link"
@@ -97,13 +97,11 @@
       進入新版模擬考
     </a>
 
-    <noscript>
-      <p style="margin-top:16px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;">
-        瀏覽器已停用 JavaScript：不會自動跳轉，請點上方按鈕。
-        注意：網址中的查詢參數（篩選條件、頁碼）需要 JavaScript 才能帶到新版網站；
-        若你在連結後方帶有參數，啟用 JavaScript 後重新進入即可保留。
-      </p>
-    </noscript>
+    <p id="redirect-fallback" style="margin-top:16px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;">
+      若 JavaScript 停用、遭封鎖或初始化失敗，本頁不會自動跳轉。
+      使用上方按鈕時，原網址中的查詢參數與網址片段可能無法保留；
+      請在新版重新選擇篩選條件、頁碼與題目定位。
+    </p>
 
     <nav aria-label="新版題庫其他功能">
       <a href="https://reese-max.github.io/police-exam-archive/">題庫首頁</a>

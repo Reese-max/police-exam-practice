@@ -1,0 +1,12 @@
+{
+  "repo": "Reese-max/police-exam-practice",
+  "issue": 4,
+  "base_sha": "0592d14e08ab918262416f67b0687e313d13cc42",
+  "red_proof": "Before implementation, Git Bash ran python -m unittest discover -s tests -v and exited 1. FAIL: test_fallback_guard_rejects_meta_refresh_variants for uppercase, reordered attributes and whitespace around '='; AssertionError: AssertionError not raised. FAIL: test_fallback_guard_rejects_missing_warning_or_wrong_link for commented warning and wrong manual destination; AssertionError: AssertionError not raised. FAIL: test_recovery_is_visible_when_inline_script_does_not_run because recovery text was absent outside noscript and the status still promised imminent navigation. Ran 13 tests in 0.009s; FAILED (failures=10).",
+  "test_command": "python -B -m unittest discover -s tests -v",
+  "test_exit": 0,
+  "tests_passed": 13,
+  "tests_failed": 0,
+  "summary": "Made the recovery explanation visible by default, qualified the initial status, and documented query/hash loss and reselection when JavaScript is disabled, blocked or fails; the redirect script is unchanged. Reused HTMLParser to reject meta refresh regardless of case, attribute order or whitespace, and added regression checks for commented recovery content and missing/incorrect manual links. All 13 compatibility tests passed under Git Bash. Seven local Chrome 155.0.8059.80 scenarios passed: normal query/hash, encoded/repeated query parameters, fragment-only entry, JavaScript disabled, CSP-blocked inline script, URL-constructor failure and timer-scheduling failure; canonical navigation was intercepted with a local fixture and keyboard activation was checked on fallback paths.",
+  "not_done": "No push, remote PR/issue edits, other-branch changes or deployment. Public destination loading, deployed-path browser acceptance, hosted CI and two consecutive full persona audits remain unverified. Browser smoke checks used exact local index.html bytes (SHA-256 63c208358c1c2fc40a78658138f44bdf692f031b76b59def35d8c287eee43812) and intercepted destination requests."
+}

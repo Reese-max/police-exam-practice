@@ -1,0 +1,26 @@
+{
+  "pr": 4,
+  "head": "0592d14e08ab918262416f67b0687e313d13cc42",
+  "findings": [
+    {
+      "severity": "med",
+      "file": "index.html",
+      "line": 100,
+      "issue": "The recovery warning exists only in noscript, which stays hidden when scripting is enabled but the inline script is blocked or fails. The unchanged status promises navigation and the bare link silently loses query/hash; the warning also omits fragment loss and reselection guidance required by issue #3."
+    },
+    {
+      "severity": "med",
+      "file": "tests/test_fusion.py",
+      "line": 74,
+      "issue": "The meta-refresh regex misses valid HTML with reordered attributes, uppercase names/values, or whitespace around '='. A parameter-dropping automatic redirect can therefore be reintroduced while all tests pass."
+    },
+    {
+      "severity": "med",
+      "file": "tests/test_fusion.py",
+      "line": 80,
+      "issue": "The fallback test only looks for a noscript tag and the word JavaScript anywhere in the source. Commenting out the recovery warning or changing the manual button to the wrong destination still passes, contrary to the issue's required regression protection."
+    }
+  ],
+  "fixed": true,
+  "summary": "Fixed three issue #3 acceptance gaps: recovery is now visible for unavailable/failed scripts with query/hash reselection guidance, HTML parsing rejects valid meta-refresh variants, and regression checks protect the warning and canonical manual link. TDD was verified red before implementation and green afterward (13 tests); seven local-browser scenarios also passed with destination requests intercepted. Public deployment and the two-round persona audit remain unverified."
+}
